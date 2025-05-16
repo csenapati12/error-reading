@@ -6,8 +6,11 @@ stage('Build') {
     steps {
         script {
             // Run the build command, capture all output (even if it fails)
-            def buildResult = sh(script: 'mvn clean || true', returnStdout: true).trim()
-            
+           // def buildResult = sh(script: 'mvn clean || true', returnStdout: true).trim()
+           def buildResult = bat(script: 'mvn clean || exit /b 0', returnStdout: true).trim()
+
+                    // Optionally, you can use buildResult to analyze the output
+                    echo "Maven clean result: ${buildResult}" 
             // Save output to a file for record
             writeFile file: 'build_output.txt', text: buildResult
             
