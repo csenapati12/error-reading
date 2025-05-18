@@ -37,12 +37,5 @@ pipeline {
             }
         }
     }
-
-    post {
-        always {
-            // Clean workspace if needed
-            echo "Cleaning workspace..."
-            deleteDir()
-        }
-    }
+  
 }
