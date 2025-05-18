@@ -30,7 +30,7 @@ pipeline {
             steps {
                 script {
                     if (env.ERROR_LOG) {
-                        echo "Captured error:\n${env.ERROR_LOG}"
+                        echo "Captured error111:\n${env.ERROR_LOG}"
                     } else {
                         echo "No error captured."
                     }
