@@ -1,0 +1,35 @@
+pipeline {
+    agent any
+
+    environment {
+        ERROR_MSG = ''
+    }
+
+    stages {
+        stage('Generate Error') {
+            steps {
+                script {
+                    bat '''
+                    echo Running a command that will fail...
+                    dir C:\\non_existing_path 2> error.txt
+                    exit 0
+                    '''
+                    
+                    // Read the error output
+                    def errorContent = readFile('error.txt').trim()
+                    if (errorContent) {
+                        env.ERROR_MSG = errorContent
+                    } else {
+                        env.ERROR_MSG = 'No error captured.'
+                    }
+                }
+            }
+        }
+
+        stage('Print Captured Error') {
+            steps {
+                echo "Captured error message from previous stage:\n${env.ERROR_MSG}"
+            }
+        }
+    }    
+}
