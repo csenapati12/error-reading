@@ -1,0 +1,46 @@
+pipeline {
+    agent any
+
+    environment {
+        ERROR_LOG = ''
+    }
+
+    stages {
+        stage('Run Command') {
+            steps {
+                script {
+                    try {
+                        // Intentionally run a failing command
+                        sh '''
+                        echo "Starting command"
+                        ls non_existing_file 2> error.txt
+                        '''
+                        
+                        // Read the error log if it exists
+                        env.ERROR_LOG = readFile('error.txt').trim()
+                    } catch (err) {
+                        echo "Caught error: ${err}"
+                    }
+                }
+            }
+        }
+
+        stage('Print Error') {
+            steps {
+                script {
+                    if (env.ERROR_LOG) {
+                        echo "Error captured from previous stage:\n${env.ERROR_LOG}"
+                    } else {
+                        echo "No error captured."
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
