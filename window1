@@ -12,7 +12,7 @@ pipeline {
                     bat '''
                     echo Running a command that will fail...
                     dir C:\\non_ex> error.txt
-                    exit 0
+                    exit 1
                     '''
                     
                     // Read the error output
