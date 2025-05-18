@@ -11,7 +11,7 @@ pipeline {
                 script {
                     bat '''
                     echo Running a command that will fail...
-                    dir C:\\non_existing_path 2> error.txt
+                    dir C:\\non_ex> error.txt
                     exit 0
                     '''
                     
