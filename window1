@@ -1,35 +1,35 @@
 pipeline {
     agent any
-
-    environment {
-        ERROR_MSG = ''
-    }
-
     stages {
-        stage('Generate Error') {
+        stage('Example') {
             steps {
                 script {
-                    bat '''
-                    echo Running a command that will fail...
-                    dir C:\\non_ex> error.txt
-                    exit 1
-                    '''
-                    
-                    // Read the error output
-                    def errorContent = readFile('error.txt').trim()
-                    if (errorContent) {
-                        env.ERROR_MSG = errorContent
-                    } else {
-                        env.ERROR_MSG = 'No error captured.'
+                    try {
+                        // Replace this with your actual build/test step
+                        echo 'Running main task...'
+                        sh 'exit 1' // Simulating a command that fails
+                    } catch (err) {
+                        echo "ERROR: ${err}"
+                        // Optionally, you can save the error message to a file
+                        writeFile file: 'error.log', text: err.toString()
+                        // Set build result to FAILURE (optional, Jenkins might do this automatically)
+                        currentBuild.result = 'FAILURE'
+                        // Optionally, rethrow if you want to fail the build hard
+                        // error("Pipeline failed: ${err}")
                     }
                 }
             }
         }
-
-        stage('Print Captured Error') {
-            steps {
-                echo "Captured error message from previous stage:\n${env.ERROR_MSG}"
+    }
+    post {
+        always {
+            // Print the error log if it exists
+            script {
+                if (fileExists('error.log')) {
+                    echo 'Captured error log:'
+                    echo readFile('error.log')
+                }
             }
         }
-    }    
+    }
 }
