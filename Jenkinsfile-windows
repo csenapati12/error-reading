@@ -1,7 +1,5 @@
 pipeline {
-    agent {
-        label 'windows' // Ensure your agent is labeled appropriately
-    }
+    agent any
 
     environment {
         ERROR_LOG = ''
