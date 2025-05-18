@@ -1,0 +1,56 @@
+pipeline {
+    agent any
+    environment {
+        JIRA_URL = 'https://yourcompany.atlassian.net'
+        JIRA_PROJECT = 'PROJECTKEY'
+        // Add credentials binding in your Jenkins job for these two:
+        // JIRA_USER and JIRA_API_TOKEN
+    }
+    stages {
+        stage('Example') {
+            steps {
+                script {
+                    def result = 0
+                    def output = ''
+                    try {
+                        echo 'Running main task...'
+                        output = sh(script: 'your_command 2>&1', returnStdout: true)
+                        result = sh(script: 'your_command', returnStatus: true)
+                        if (result != 0) {
+                            error("Command failed!")
+                        }
+                    } catch (err) {
+                        echo "ERROR: ${err}"
+                        // Get last 100 lines of console log (requires Workflow support plugin)
+                        def log = currentBuild.rawBuild.getLog(100).join('\n')
+                        // Escape double quotes for JSON
+                        log = log.replaceAll('"', '\\"')
+                        def summary = "Jenkins Job Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+                        def description = "Jenkins build failed. Console output:\n\n${log}\n\n[See Jenkins Job|${env.BUILD_URL}]"
+                        def payload = """{
+                          "fields": {
+                            "project": { "key": "${env.JIRA_PROJECT}" },
+                            "summary": "${summary}",
+                            "description": "${description}",
+                            "issuetype": { "name": "Bug" }
+                          }
+                        }"""
+                        // Use credentials binding for user/token in actual usage
+                        withCredentials([
+                            string(credentialsId: 'jira-user', variable: 'JIRA_USER'),
+                            string(credentialsId: 'jira-token', variable: 'JIRA_API_TOKEN')
+                        ]) {
+                            sh """
+                              curl -X POST -H "Content-Type: application/json" \
+                              -u "${JIRA_USER}:${JIRA_API_TOKEN}" \
+                              --data '${payload}' \
+                              ${JIRA_URL}/rest/api/2/issue/
+                            """
+                        }
+                        currentBuild.result = 'FAILURE'
+                    }
+                }
+            }
+        }
+    }
+}
