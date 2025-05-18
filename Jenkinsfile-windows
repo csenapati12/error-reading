@@ -20,6 +20,7 @@ pipeline {
                         env.ERROR_LOG = readFile('error.txt').trim()
                     } catch (err) {
                         echo "Caught error: ${err}"
+                        env.ERROR_LOG = readFile('error.txt').trim()
                     }
                 }
             }
