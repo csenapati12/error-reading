@@ -9,7 +9,7 @@ pipeline {
                         echo 'Running main task...'
                         sh 'exit 1' // Simulating a command that fails
                     } catch (err) {
-                        echo "ERROR: ${err}"
+                        echo "ERROR11111111111: ${err}"
                         // Optionally, you can save the error message to a file
                         writeFile file: 'error.log', text: err.toString()
                         // Set build result to FAILURE (optional, Jenkins might do this automatically)
@@ -26,7 +26,7 @@ pipeline {
             // Print the error log if it exists
             script {
                 if (fileExists('error.log')) {
-                    echo 'Captured error log:'
+                    echo 'Captured error log222222222222:'
                     echo readFile('error.log')
                 }
             }
