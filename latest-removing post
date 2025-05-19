@@ -24,6 +24,7 @@ pipeline {
                     if (fileExists('error.log')) {
                         echo 'Captured error log:'
                         echo readFile('error.log')
+                        sh 'exit 1'
                     } else {
                         echo 'No error log found.'
                     }
