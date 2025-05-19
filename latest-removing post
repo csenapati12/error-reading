@@ -1,0 +1,34 @@
+pipeline {
+    agent any
+    stages {
+        stage('Example') {
+            steps {
+                script {
+                    try {
+                        echo 'Running main task...'
+                        sh 'exit 1' // Simulated failure
+                    } catch (err) {
+                        echo "ERROR: ${err}"
+                        writeFile file: 'error.log', text: err.toString()
+                        currentBuild.result = 'FAILURE' // Optional
+                        // Uncomment to enforce build failure
+                        // error("Pipeline failed: ${err}")
+                    }
+                }
+            }
+        }
+
+        stage('Show Error Log') {
+            steps {
+                script {
+                    if (fileExists('error.log')) {
+                        echo 'Captured error log:'
+                        echo readFile('error.log')
+                    } else {
+                        echo 'No error log found.'
+                    }
+                }
+            }
+        }
+    }
+}
