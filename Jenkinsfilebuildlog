@@ -16,11 +16,19 @@ pipeline {
                     echo This is a normal line. >> output.log
                     echo ERROR: Another error occurred! >> output.log
                     '''
+                    if (fileExists('output.log')) {
+                        bat 'findstr /I "ERROR" output.log > error_lines.log'
+                        env.ERROR_LINES = readFile('error_lines.log').trim()
+                        echo "Found error lines:\n${env.ERROR_LINES}"
+                    } else {
+                        env.ERROR_LINES = ''
+                        echo 'No output.log found.'
+                    }
                 }
             }
         }
 
-        stage('Search Output for "ERROR"') {
+      /**  stage('Search Output for "ERROR"') {
             steps {
                 script {
                     if (fileExists('output.log')) {
@@ -33,7 +41,7 @@ pipeline {
                     }
                 }
             }
-        }
+        }**/
 
         stage('Add JIRA Comment') {
             when {
