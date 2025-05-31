@@ -6,15 +6,14 @@ pipeline {
                 script {
                     try {
                         echo 'Running main task...'
-                        bat 'exit /b 1' // Simulated failure for Windows
-                    } catch (err) {
+                        bat 'exit /b 1' // Simulated failure for Windows                 
                         echo "ERROR!!!!!!!!!!!!!!: ${err}"
                         echo "ERROR222222: ${err}"
                         writeFile file: 'error.log', text: err.toString()
                         //currentBuild.result = 'FAILURE' // Optional
                         // Uncomment to enforce build failure
                         // error("Pipeline failed: ${err}")
-                    }
+           
                 }
             }
         }
