@@ -9,10 +9,12 @@ pipeline {
                         sh 'exit 1' // Simulated failure
                     } catch (err) {
                         echo "ERROR!!!!!!!!!!!!!!: ${err}"
+                        echo "ERROR222222: ${err}"
                         writeFile file: 'error.log', text: err.toString()
-                        currentBuild.result = 'FAILURE' // Optional
+                        //currentBuild.result = 'FAILURE' // Optional
                         // Uncomment to enforce build failure
                         // error("Pipeline failed: ${err}")
+                        
                     }
                 }
             }
