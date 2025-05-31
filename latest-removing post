@@ -4,7 +4,7 @@ pipeline {
         stage('Example') {
             steps {
                 script {
-                    try {
+                  
                         echo 'Running main task...'
                         bat 'exit /b 1' // Simulated failure for Windows                 
                         echo "ERROR!!!!!!!!!!!!!!: ${err}"
