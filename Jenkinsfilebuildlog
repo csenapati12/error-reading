@@ -1,0 +1,34 @@
+pipeline {
+    agent any
+    stages {
+        stage('Capture Output') {
+            steps {
+                script {
+                    bat '''
+                    echo Starting job... > output.log
+                    echo ERROR: Something went wrong! >> output.log
+                    echo This is a normal line. >> output.log
+                    echo ERROR: Another error occurred! >> output.log
+                    '''
+                }
+            }
+        }
+
+        stage('Search Output for "ERROR"') {
+            steps {
+                script {
+                    if (fileExists('output.log')) {
+                        echo 'Lines containing "ERROR":'
+                        // Find and display lines with ERROR (case-insensitive)
+                        bat '''
+                        findstr /I "ERROR" output.log > error_lines.log
+                        '''
+                        echo readFile('error_lines.log')
+                    } else {
+                        echo 'No output.log found.'
+                    }
+                }
+            }
+        }
+    }
+}
