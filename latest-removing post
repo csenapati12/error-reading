@@ -8,7 +8,7 @@ pipeline {
                         echo 'Running main task...'
                         sh 'exit 1' // Simulated failure
                     } catch (err) {
-                        echo "ERROR: ${err}"
+                        echo "ERROR!!!!!!!!!!!!!!: ${err}"
                         writeFile file: 'error.log', text: err.toString()
                         currentBuild.result = 'FAILURE' // Optional
                         // Uncomment to enforce build failure
