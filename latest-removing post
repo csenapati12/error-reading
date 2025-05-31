@@ -5,8 +5,8 @@ pipeline {
             steps {
                 script {
                   
-                        echo 'Running main task...'
-                        bat 'exit /b 1' // Simulated failure for Windows                 
+                        echo 'ERROR Running main task...'
+                     //   bat 'exit /b 1' // Simulated failure for Windows                 
                         echo "ERROR!!!!!!!!!!!!!!: ${err}"
                         echo "ERROR222222: ${err}"
                         writeFile file: 'error.log', text: err.toString()
