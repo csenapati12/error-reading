@@ -1,5 +1,11 @@
 pipeline {
     agent any
+    environment {
+        // Replace with your actual JIRA site, credentials, and issue key
+        JIRA_SITE = 'your-jira-site'
+        JIRA_CREDENTIALS_ID = 'your-jira-credentials-id'
+        JIRA_ISSUE_KEY = 'PROJECT-123'
+    }
     stages {
         stage('Capture Output') {
             steps {
@@ -18,15 +24,26 @@ pipeline {
             steps {
                 script {
                     if (fileExists('output.log')) {
-                        echo 'Lines containing "ERROR":'
-                        // Find and display lines with ERROR (case-insensitive)
-                        bat '''
-                        findstr /I "ERROR" output.log > error_lines.log
-                        '''
-                        echo readFile('error_lines.log')
+                        bat 'findstr /I "ERROR" output.log > error_lines.log'
+                        env.ERROR_LINES = readFile('error_lines.log').trim()
+                        echo "Found error lines:\n${env.ERROR_LINES}"
                     } else {
+                        env.ERROR_LINES = ''
                         echo 'No output.log found.'
                     }
+                }
+            }
+        }
+
+        stage('Add JIRA Comment') {
+            when {
+                expression { env.ERROR_LINES?.trim() }
+            }
+            steps {
+                script {
+                    // Requires Jenkins JIRA plugin and proper configuration
+                    echo "Add jira comments are ??? :${env.ERROR_LINES}"
+                 //   jiraComment body: """Captured error lines from Jenkins build:${env.ERROR_LINES}""", issueKey: env.JIRA_ISSUE_KEY, site: env.JIRA_SITE
                 }
             }
         }
