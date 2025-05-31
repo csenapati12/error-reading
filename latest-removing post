@@ -1,12 +1,12 @@
 pipeline {
-    agent any
+    agent any // Use a Windows-based agent (adjust label as needed)
     stages {
         stage('Example') {
             steps {
                 script {
                     try {
                         echo 'Running main task...'
-                        sh 'exit 1' // Simulated failure
+                        bat 'exit /b 1' // Simulated failure for Windows
                     } catch (err) {
                         echo "ERROR!!!!!!!!!!!!!!: ${err}"
                         echo "ERROR222222: ${err}"
@@ -14,7 +14,6 @@ pipeline {
                         //currentBuild.result = 'FAILURE' // Optional
                         // Uncomment to enforce build failure
                         // error("Pipeline failed: ${err}")
-                        
                     }
                 }
             }
@@ -26,7 +25,7 @@ pipeline {
                     if (fileExists('error.log')) {
                         echo 'Captured error log:'
                         echo readFile('error.log')
-                        sh 'exit 1'
+                        bat 'exit /b 1' // Simulate failure in Windows
                     } else {
                         echo 'No error log found.'
                     }
