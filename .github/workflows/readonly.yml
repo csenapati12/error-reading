@@ -1,0 +1,31 @@
+name: List Read-only Branches
+
+on:
+  workflow_dispatch:
+
+jobs:
+  list-readonly-branches:
+    runs-on: ubuntu-latest
+    steps:
+      - name: List protected (read-only) branches
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          REPO="${{ github.repository }}"
+          echo "🔍 Fetching all branches for $REPO..."
+
+          # Get all branches
+          curl -s -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/repos/$REPO/branches?per_page=100" | \
+          jq -r '.[] | .name' > branches.txt
+
+          echo "✅ Found the following protected (read-only) branches:"
+          while read branch; do
+            PROTECTION=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: token $GH_TOKEN" \
+              "https://api.github.com/repos/$REPO/branches/$branch/protection")
+
+            if [ "$PROTECTION" -eq 200 ]; then
+              echo "🔒 $branch"
+            fi
+          done < branches.txt
