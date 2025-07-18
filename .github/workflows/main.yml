@@ -1,0 +1,26 @@
+name: Lock Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to lock (e.g., main, release)'
+        required: true
+        default: 'main'
+
+jobs:
+  lock-branch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Lock branch using GitHub API
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          BRANCH_NAME: ${{ github.event.inputs.branch }}
+        run: |
+          echo "🔐 Attempting to lock branch: $BRANCH_NAME"
+
+          curl -X PUT \
+            -H "Authorization: token $PAT_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/branches/$BRANCH_NAME/lock
