@@ -18,7 +18,7 @@ jobs:
           curl -s -H "Authorization: token $PAT_TOKEN" \
             "https://api.github.com/repos/$REPO/branches?per_page=100" | \
           jq -r '.[] | .name' > branches.txt
-
+          cat branches.txt
           echo "✅ Found the following protected (read-only) branches:"
           while read branch; do
             PROTECTION=$(curl -s -o /dev/null -w "%{http_code}" \
