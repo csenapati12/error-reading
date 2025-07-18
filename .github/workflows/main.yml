@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Lock branch using GitHub API
         env:
-          PAT_TOKEN: ${{ secrets.branch-deletion }}
+          PAT_TOKEN: ${{ secrets.BRANCH_DELETION }}
           BRANCH_NAME: ${{ github.event.inputs.branch }}
         run: |
           echo "🔐 Attempting to lock branch: $BRANCH_NAME"
