@@ -1,0 +1,131 @@
+name: 2-PreDeploy-QA-Dev
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag parameter passed from parent job'
+        required: true
+        default: '07132025-120'
+      ace_version:
+        description: 'ACE version to be used'
+        required: true
+        default: '12.0.12.7'
+
+  push:
+    branches:
+      - BAR-4142
+
+env:
+  LC_ALL: en_US.UTF-8
+  LANG: en_US.UTF-8
+  LANGUAGE: en_US.UTF-8
+  ArtifactsFrom: ../BuildAndDeploy/Build_Qadev
+  sYS_DSN: INT_DB_QADEV
+  dB_Schema: ace_int
+  cif_Url: http://cifdev.cgic.ca/MDMWSProvider/MDMService
+  cifssl_Url: https://cifdev.cgic.ca/MDMWSProvider/MDMService
+  cfg_Path: brokerLog_QADEV.xml
+  claims_WebServiceUrl: https://cc-sit1c-gwcpdev.coop.alpha-1-ca-ctrl-1.guidewire.net/ws/util/ECM/ECM_ClaimInfoAPI/soap11
+  phoenix_WebServiceUrl: https://r2.phoenix.cooperatorsgroup.ca/PhoenixServices/CIFServices.asmx
+  sf_Url: https://cooperators--qadev.sandbox.my.salesforce.com/
+  ACEssl_Url: https://mislnxnp041.cgic.ca:7845
+  sfInbound_policy: Salesforce_nonprod
+
+jobs:
+  deploy:
+    runs-on: ecp
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup JFrog CLI
+        uses: jfrog/setup-jfrog-cli@v4
+        env:
+          JF_URL: https://${{ vars.ARTIFACTORY_HOST }}
+          JF_USER: ${{ secrets.ARTIFACTORY_USERNAME }}
+          JF_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
+
+      - name: Download Artifact
+        id: get-tag
+        run: |
+          jf --version
+          jf rt dl "ax-crm/ax-crm-qadev/BarFiles-Build-${{ inputs.tag }}.tgz" --flat=true
+          jf rt dl "ax-crm/developerfiles/${{ inputs.ace_version }}-ACE-LINUX64-DEVELOPER.tar.gz" --flat=true
+          ls -la
+          tar -xf BarFiles-Build-${{ inputs.tag }}.tgz -C .
+          tar -xvf ${{ inputs.ace_version }}-ACE-LINUX64-DEVELOPER.tar.gz
+          cd ${{ github.workspace }}/ace-${{ inputs.ace_version }}
+          du -sh
+
+      - name: Set ACE_PATH environment variable
+        run: echo "ACE_PATH=${{ github.workspace }}/ace-${{ inputs.ace_version }}" >> $GITHUB_ENV
+
+      - name: Set up dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y locales
+          sudo locale-gen en_US.UTF-8
+          export LC_ALL=en_US.UTF-8
+          export LANG=en_US.UTF-8
+          export LANGUAGE=en_US.UTF-8
+          sudo apt-get install -y curl tar dos2unix
+          sudo apt-get install --reinstall -y ca-certificates
+          sudo apt-get install -y xvfb
+          sudo apt-get install -y openjdk-11-jdk
+          export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+          export PATH=$JAVA_HOME/bin:$PATH
+          source ~/.bashrc
+          echo $JAVA_HOME
+          java -version
+
+      - name: Inject dependencies into BarOverride_Generic.properties
+        run: |
+          dos2unix "Config files/BarOverride_Generic.properties"
+          sed -i "s/sYS_DSN/${sYS_DSN}/g" "Config files/BarOverride_Generic.properties"
+          sed -i "s/dB_Schema/${dB_Schema}/g" "Config files/BarOverride_Generic.properties"
+          sed -i "s,cif_Url,${cif_Url},g" "Config files/BarOverride_Generic.properties"
+          sed -i "s,cfg_Path,${cfg_Path},g" "Config files/BarOverride_Generic.properties"
+          sed -i "s,claims_WebServiceUrl,${claims_WebServiceUrl},g" "Config files/BarOverride_Generic.properties"
+          sed -i "s,phoenix_WebServiceUrl,${phoenix_WebServiceUrl},g" "Config files/BarOverride_Generic.properties"
+          sed -i "s,cifssl_Url,${cifssl_Url},g" "Config files/BarOverride_Generic.properties"
+          sed -i "s,ACEssl_Url,${ACEssl_Url},g" "Config files/BarOverride_Generic.properties"
+          sed -i "s,sf_Url,${sf_Url},g" "Config files/BarOverride_Generic.properties"
+          sed -i "s,sfInbound_policy,${sfInbound_policy},g" "Config files/BarOverride_Generic.properties"
+
+      - name: Accept ACE License
+        run: |
+          echo 1 | "${ACE_PATH}/ace" accept license --license International
+
+      - name: Predeploy BAR Files
+        run: |
+          . "${ACE_PATH}/server/bin/mqsiprofile"
+          for bar in \
+            REST_SF_TO_CIF_HUB \
+            CIF_TO_SF_ASYNC_PARTY_MFP \
+            CIF_TO_SF_ASYNC_POLICY_MFP \
+            SF_TO_CIF_ASYNC_MFP \
+            CIF_TO_SF_RETRY_ERROR_MFP \
+            ACE_AUDIT_ERROR_LOGGING_MFP \
+            CIF_TO_ACE_NOTIFICATION_MFP \
+            PC_TO_SF_ASYNC_MFP \
+            DS_TO_SF_ASYNC_MFP \
+            REST_TO_CIF_HUB \
+            REST_TO_CC_HUB \
+            CC_TO_SF_ASYNC_MFP \
+            REST_SF_TO_LIFE_HUB \
+            ACE_TO_SF_PLATFORM_EVENT_MFP \
+            SF_TO_ACE_GROUP_EVENT_MFP \
+            SF_TO_ACE_PARTY_EVENT_MFP
+          do
+            echo "Predeploying $bar.bar"
+            "$ACE_PATH/server/bin/mqsiapplybaroverride" \
+              -b "$bar.bar" -k "$bar" -p "Config files/BarOverride_Generic.properties" -o "$bar.bar"
+          done
+
+      - name: Archive BAR files as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bar-artifacts
+          path: '*.bar'
