@@ -1,0 +1,50 @@
+# Workflow to apply branch protection rules to make a branch read-only (no direct pushes).
+name: 'Protect Branch: Make Read-Only'
+
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      branch_name:
+        description: 'The name of the branch to protect (e.g., main)'
+        required: true
+        default: 'main'
+
+jobs:
+  protect-branch:
+    runs-on: ubuntu-latest
+    
+    # These permissions are required for the GITHUB_TOKEN to be able to
+    # read repository metadata and write to administration settings (branch protection).
+    permissions:
+      contents: read
+      administration: write
+
+    steps:
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+
+      - name: 'Apply Read-Only Branch Protection'
+        env:
+          # The GITHUB_TOKEN is automatically created by Actions and has the permissions defined above.
+          GH_TOKEN: ${{ github.token }}
+          # Get the branch name from the manual trigger input.
+          BRANCH: ${{ github.event.inputs.branch_name }}
+        run: |
+          echo "Applying read-only protection rules to branch: $BRANCH"
+          
+          # Use the GitHub CLI to call the REST API for updating branch protection.
+          # This command configures a strict set of rules to prevent direct pushes.
+          gh api \
+            --method PUT \
+            "repos/${{ github.repository }}/branches/$BRANCH/protection" \
+            -f "required_status_checks=null" \
+            -f "enforce_admins=true" \
+            -F "required_pull_request_reviews[required_approving_review_count]=1" \
+            -F "required_pull_request_reviews[dismiss_stale_reviews]=false" \
+            -F "required_pull_request_reviews[require_code_owner_reviews]=false" \
+            -F "restrictions=null" \
+            -F "allow_force_pushes=false" \
+            -F "allow_deletions=false"
+
+          echo "Successfully applied protection rules to branch: $BRANCH"
