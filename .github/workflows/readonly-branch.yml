@@ -6,14 +6,16 @@ on:
 jobs:
   list-readonly-branches:
     runs-on: ubuntu-latest
+    permissions:
+      # Required to read repository contents and branch protection rules
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up GitHub CLI
-        uses: actions/setup-gh@v4
-
       - name: List protected (read-only) branches
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "Read-only (protected) branches in the repository:"
           gh api repos/${{ github.repository }}/branches --paginate \
