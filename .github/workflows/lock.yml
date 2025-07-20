@@ -1,4 +1,6 @@
 # Workflow to apply branch protection rules to make a branch read-only (no direct pushes).
+# NOTE: This version is updated to be compatible with older GitHub Enterprise versions
+# that do not support the `permissions: administration: write` scope.
 name: 'Protect Branch: Make Read-Only'
 
 on:
@@ -13,6 +15,10 @@ on:
 jobs:
   protect-branch:
     runs-on: ubuntu-latest
+    
+    # The 'permissions' block has been removed. Instead, this workflow uses a
+    # Personal Access Token (PAT) with 'repo' scope, stored as a repository secret.
+    # See the setup instructions for creating the PAT and the `REPO_ADMIN_PAT` secret.
 
     steps:
       - name: 'Checkout Repository'
@@ -20,8 +26,9 @@ jobs:
 
       - name: 'Apply Read-Only Branch Protection'
         env:
-          # The GITHUB_TOKEN is automatically created by Actions and has the permissions defined above.
-          GH_TOKEN: ${{ github.token }}
+          # This now uses a secret containing a PAT instead of the default GITHUB_TOKEN.
+          # You must create this secret in your repository settings.
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           # Get the branch name from the manual trigger input.
           BRANCH: ${{ github.event.inputs.branch_name }}
         run: |
