@@ -34,7 +34,7 @@ env:
 
 jobs:
   deploy:
-    runs-on: ecp
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
