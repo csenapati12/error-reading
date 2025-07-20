@@ -6,7 +6,7 @@ on:
       branch_name:
         description: 'The name of the branch to protect (e.g., main)'
         required: true
-        default: 'main'
+        default: 'develop'
 
 jobs:
   protect-branch:
@@ -20,7 +20,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           BRANCH: ${{ github.event.inputs.branch_name }}
-                run: |
+        run: |
           echo "Applying read-only protection rules to branch: $BRANCH"
 
           gh api \
@@ -30,10 +30,25 @@ jobs:
             /repos/OWNER/REPO/branches/$BRANCH/protection \
             -f 'required_status_checks={"strict":true,"contexts":["continuous-integration/travis-ci"]}' \
             -f 'enforce_admins=true' \
-            -f 'required_pull_request_reviews={"dismiss_stale_reviews":true,"require_code_owner_reviews":true,"required_approving_review_count":2,"require_last_push_approval":true}' \
-            -f 'restrictions={"users":["octocat"],"teams":["justice-league"],"apps":["super-ci"]}' \
-            -f 'bypass_pull_request_allowances={"users":["octocat"],"teams":["justice-league"]}' \
-            -f 'dismissal_restrictions={"users":["octocat"],"teams":["justice-league"]}' \
+            -f 'required_pull_request_reviews={
+                  "dismiss_stale_reviews": true,
+                  "require_code_owner_reviews": true,
+                  "required_approving_review_count": 2,
+                  "require_last_push_approval": true
+                }' \
+            -f 'dismissal_restrictions={
+                  "users": ["octocat"],
+                  "teams": ["justice-league"]
+                }' \
+            -f 'bypass_pull_request_allowances={
+                  "users": ["octocat"],
+                  "teams": ["justice-league"]
+                }' \
+            -f 'restrictions={
+                  "users": ["octocat"],
+                  "teams": ["justice-league"],
+                  "apps": ["super-ci"]
+                }' \
             -f 'required_linear_history=true' \
             -f 'allow_force_pushes=true' \
             -f 'allow_deletions=true' \
@@ -42,5 +57,4 @@ jobs:
             -f 'lock_branch=true' \
             -f 'allow_fork_syncing=true'
 
-          echo "Successfully applied protection rules to branch: $BRANCH"
           echo "Successfully applied protection rules to branch: $BRANCH"
