@@ -13,12 +13,6 @@ on:
 jobs:
   protect-branch:
     runs-on: ubuntu-latest
-    
-    # These permissions are required for the GITHUB_TOKEN to be able to
-    # read repository metadata and write to administration settings (branch protection).
-    permissions:
-      contents: read
-      administration: write
 
     steps:
       - name: 'Checkout Repository'
