@@ -35,6 +35,7 @@ jobs:
 
           # Check if the branch already exists
           branch_exists=$(gh api repos/$REPO/branches/$BRANCH --jq '.name' 2>/dev/null || echo "")
+          echo "$branch_exists"
           if [ -n "$branch_exists" ]; then
             echo "Error: Branch '$BRANCH' already exists. Cannot restore."
             exit 1
