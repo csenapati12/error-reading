@@ -1,0 +1,53 @@
+name: Restore Deleted Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch_name:
+        description: 'The name of the branch to restore (e.g., feature/old-branch)'
+        required: true
+      commit_sha:
+        description: 'The commit SHA that the branch should point to (retrieve from deletion workflow logs)'
+        required: true
+
+permissions:
+  contents: write  # Needed to create branches
+
+jobs:
+  restore:
+    name: Restore the specified branch
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+
+      - name: Restore branch using GitHub API
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ inputs.branch_name }}
+          SHA: ${{ inputs.commit_sha }}
+        run: |
+          echo "Restoring branch '$BRANCH' to commit SHA '$SHA'..."
+
+          # Check if the branch already exists
+          branch_exists=$(gh api repos/$REPO/branches/$BRANCH --jq '.name' 2>/dev/null || echo "")
+          if [ -n "$branch_exists" ]; then
+            echo "Error: Branch '$BRANCH' already exists. Cannot restore."
+            exit 1
+          fi
+
+          # Validate the SHA (check if commit exists)
+          commit_exists=$(gh api repos/$REPO/commits/$SHA --jq '.sha' 2>/dev/null || echo "")
+          if [ -z "$commit_exists" ]; then
+            echo "Error: Commit SHA '$SHA' does not exist or is invalid."
+            exit 1
+          fi
+
+          # Restore the branch by creating a new ref
+          gh api -X POST repos/$REPO/git/refs -f ref=refs/heads/$BRANCH -f sha=$SHA
+
+          echo "Branch '$BRANCH' restored successfully to SHA '$SHA'."
