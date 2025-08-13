@@ -1,22 +1,51 @@
-name: List Read-Only (Protected) Branches
-
+name: nyulh/Databricks FGP Deployment
 on:
-  workflow_dispatch:
-
+   workflow_dispatch:
+   push:
+    branches:
+     - main  
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
+env:
+  system_debug: true
 jobs:
-  list-readonly-branches:
-    runs-on: ubuntu-latest
-    permissions:
-      # Required to read repository contents and branch protection rules
-      contents: read
+  Development:
+    name: ADB FGP Deploy PROD
+    runs-on: ["self-hosted-vm", "linux"]
+    container:
+      image: ghcr.io/nyulh/nyu-gh-azure-runner-image:v1.0.1
+      credentials: 
+        username: ${{ github.actor }}
+        password: ${{ secrets.NYULH_GHCR_READ }}
+    environment: prod
+    env:
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      mergebranch_name: ${{ vars.mergebranch_name }}
+      DATABRICKS_REPO_ID: ${{ vars.DATABRICKS_REPO_ID }}
+      
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
-      - name: List protected (read-only) branches
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "Read-only (protected) branches in the repository:"
-          gh api repos/${{ github.repository }}/branches --paginate \
-            | jq -r '.[] | select(.protected) | .name'
+    - name: checkout
+      uses: actions/checkout@v4.1.0
+      with:
+        ref: ${{ vars.mergebranch_name }}
+
+    - name: Ensure Databricks CLI is in PATH
+      run: |
+        # export PATH=$PATH:$(python3 -m site --user-base)/bin
+          sudo curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks --version
+    - name: Pull Latest Changes into Databricks Repo
+      run: |
+          echo "Testing Databricks CLI Authentication..."
+          databricks workspace list /
+          echo "Pull Latest Changes into Databricks Repo"
+          databricks repos update ${{ env.DATABRICKS_REPO_ID }} --branch ${{ env.mergebranch_name }}
+      env:
+          DATABRICKS_HOST: ${{ env.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ env.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ env.DATABRICKS_CLIENT_SECRET }}
