@@ -12,6 +12,7 @@ pipeline {
                 script {
                     def result = 0
                     def output = ''
+                    def tt = ''
                     try {
                         echo 'Running main task...'
                         output = sh(script: 'your_command 2>&1', returnStdout: true)
