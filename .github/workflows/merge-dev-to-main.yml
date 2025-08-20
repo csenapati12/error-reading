@@ -1,0 +1,38 @@
+name: Merge dev into main
+
+on:
+  workflow_dispatch:  # Manual trigger
+  push:
+    branches:
+      - dev            # Or trigger on push to dev if you want automatic merge
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # Full history needed for merges
+
+    - name: Setup Git user
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Checkout main branch
+      run: git checkout main
+
+    - name: Pull latest main
+      run: git pull origin main
+
+    - name: Merge dev into main
+      run: |
+        git merge origin/dev --no-ff -m "Merge branch 'dev' into main"
+
+    - name: Push changes
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        git push origin main
