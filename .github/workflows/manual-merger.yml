@@ -1,0 +1,56 @@
+# .github/workflows/manual-branch-merge.yml
+
+name: 'Manual Branch Merge'
+
+# This workflow is triggered manually from the Actions tab
+on:
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: 'The name of the source branch to merge from'
+        required: true
+        type: string
+      target_branch:
+        description: 'The name of the target branch to merge into'
+        required: true
+        default: 'main'
+        type: string
+      confirm:
+        description: 'SAFETY CHECK: Type the source branch name again to confirm'
+        required: true
+        type: string
+
+jobs:
+  merge:
+    # Enhanced safety check: Run only if the confirmation input matches the source branch name
+    if: github.event.inputs.confirm == github.event.inputs.source_branch
+    
+    runs-on: ubuntu-latest
+    
+    permissions:
+      # Required to push the merge commit
+      contents: write
+
+    steps:
+      - name: 'Checkout target branch (${{ github.event.inputs.target_branch }})'
+        uses: actions/checkout@v4
+        with:
+          # Explicitly check out the target branch from user input
+          ref: ${{ github.event.inputs.target_branch }}
+          # Fetch all history for all branches and tags
+          fetch-depth: 0
+
+      - name: 'Set up Git user'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: 'Merge ${{ github.event.inputs.source_branch }} into ${{ github.event.inputs.target_branch }}'
+        run: |
+          # Perform the merge using the source branch from user input
+          git merge --no-ff origin/${{ github.event.inputs.source_branch }} -m "Merge branch '${{ github.event.inputs.source_branch }}' into '${{ github.event.inputs.target_branch }}' [CI]"
+
+      - name: 'Push changes to ${{ github.event.inputs.target_branch }}'
+        run: |
+          # Push the merge commit to the remote target branch
+          git push origin ${{ github.event.inputs.target_branch }}
