@@ -1,0 +1,48 @@
+# .github/workflows/merge-dev-to-main.yml
+
+name: 'Merge Dev to Main1'
+
+# This workflow is triggered manually from the Actions tab
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "confirm" to approve the merge from dev to main'
+        required: true
+        default: 'no'
+
+jobs:
+  merge:
+    # Only run the job if the user typed "confirm" in the input box
+    if: github.event.inputs.confirm == 'confirm'
+    
+    runs-on: ubuntu-latest
+    
+    permissions:
+      # Required to push the merge commit
+      contents: write
+
+    steps:
+      - name: 'Checkout main branch'
+        uses: actions/checkout@v4
+        with:
+          # Explicitly check out the main branch
+          ref: 'main'
+          # Fetch all history for all branches and tags
+          fetch-depth: 0
+
+      - name: 'Set up Git user'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: 'Merge dev into main'
+        run: |
+          # Perform the merge. The --no-ff flag ensures a merge commit is created.
+          # This creates a clearer history than a fast-forward merge.
+          git merge --no-ff origin/dev -m "Merge branch 'dev' into 'main' [CI]"
+
+      - name: 'Push changes'
+        run: |
+          # Push the merge commit to the remote main branch
+          git push origin main
