@@ -1,0 +1,47 @@
+# .github/workflows/merge-dev-to-main.yml
+
+name: 'merge-conflict-pr'
+on:
+  workflow_dispatch:  
+jobs:
+  merge:  
+    runs-on: ubuntu-latest    
+    permissions:
+      contents: write
+
+    steps:
+      - name: 'Checkout main branch'
+        uses: actions/checkout@v4
+        with:
+          ref: 'main'
+          fetch-depth: 0   # full history is required for merge & deletes
+
+      - name: 'Fetch dev branch'
+        run: |
+          git fetch origin dev:dev
+
+      - name: 'Set up Git user'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: 'Attempt merge dev into main'
+        id: merge
+        run: |
+          set +e
+          git merge --no-ff dev -m "Merge branch 'dev' into 'main' [CI]"
+          echo "MERGE_EXIT_CODE=$?" >> $GITHUB_ENV
+          set -e
+
+      - name: 'Show merge conflict (if any)'
+        if: env.MERGE_EXIT_CODE != '0'
+        run: |
+          echo "❌ Merge conflict detected!"
+          echo "The following files have conflicts:"
+          git diff --name-only --diff-filter=U
+          exit 1  # Fail so conflicts are visible in Actions logs
+
+      - name: 'Push changes'
+        if: env.MERGE_EXIT_CODE == '0'
+        run: |
+          git push origin main
