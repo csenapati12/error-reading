@@ -1,6 +1,6 @@
 # .github/workflows/merge-dev-to-main.yml
 
-name: 'merge-conflict-pr'
+name: 'merge-conflict-pr-single'
 on:
   workflow_dispatch:  
 jobs:
