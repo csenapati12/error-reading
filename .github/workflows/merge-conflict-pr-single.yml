@@ -19,7 +19,7 @@ jobs:
       - name: 'Merge dev to main'
         run: |
           # Fetch dev branch
-          git fetch origin dev:dev
+          git fetch origin Develop_copy:Develop_copy
 
           # Configure git user
           git config user.name "github-actions[bot]"
@@ -27,16 +27,16 @@ jobs:
 
           # Attempt merge
           set +e
-          git merge --no-ff dev -m "Merge branch 'dev' into 'main' [CI]"
+          git merge --no-ff Develop_copy -m "Merge branch 'dev' into 'main' [CI]"
           MERGE_EXIT_CODE=$?
           set -e
 
           if [ $MERGE_EXIT_CODE -ne 0 ]; then
-            echo "❌ Merge conflict detected!"
+            echo " Merge conflict detected!"
             echo "The following files have conflicts:"
             git diff --name-only --diff-filter=U
             exit 1
           else
-            echo "✅ Merge successful, pushing changes..."
-            git push origin main
+            echo " Merge successful, pushing changes..."
+            git push origin main_copy
           fi
