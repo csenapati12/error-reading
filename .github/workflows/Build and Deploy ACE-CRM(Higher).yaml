@@ -1,0 +1,11 @@
+name: Build and Deploy ACE-CRM(Higher)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  placeholder:
+    runs-on: ecp
+    steps:
+      - name: Placeholder Job
+        run: echo "This is a placeholder job for Build and Deploy ACE-CRM(Higher) workflow."
