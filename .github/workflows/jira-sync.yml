@@ -1,0 +1,53 @@
+name: Create GitHub issue from Jira
+
+on:
+  repository_dispatch:
+    types: [jira_in_progress]
+
+jobs:
+  create-issue:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write        # GITHUB_TOKEN gets this automatically
+
+    steps:
+      - name: Create GitHub issue
+        id: create
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const payload = context.payload.client_payload;
+
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              title: `[${payload.jira_key}] ${payload.summary}`,
+              body: `## Jira Story: [${payload.jira_key}](${payload.jira_url})
+
+            **Summary:** ${payload.summary}
+            **Priority:** ${payload.priority}
+            **Reporter:** ${payload.reporter}
+
+            ---
+            *Auto-created when story moved to In Progress*`,
+              labels: ['jira-sync', 'in-progress']
+            });
+
+            console.log(`Created issue #${issue.data.number}`);
+            core.setOutput('issue_number', issue.data.number);
+            core.setOutput('issue_url', issue.data.html_url);
+
+      - name: Link issue back to Jira
+        run: |
+          curl -s -X POST \
+            -u "${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ github.event.client_payload.jira_key }}/remotelink" \
+            -d '{
+              "globalId": "github-issue-${{ steps.create.outputs.issue_number }}",
+              "object": {
+                "url": "${{ steps.create.outputs.issue_url }}",
+                "title": "GitHub Issue #${{ steps.create.outputs.issue_number }}",
+                "icon": { "url16x16": "https://github.com/favicon.ico" }
+              }
+            }'
