@@ -3,7 +3,6 @@ pipeline {
     environment {
         ERROR_LOG = ''
     }
-
     stages {
         stage('Run Command') {
             steps {
