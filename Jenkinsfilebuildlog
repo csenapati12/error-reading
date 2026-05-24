@@ -27,7 +27,6 @@ pipeline {
                 }
             }
         }
-
       /**  stage('Search Output for "ERROR"') {
             steps {
                 script {
