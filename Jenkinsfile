@@ -12,8 +12,7 @@ stage('Build') {
                     // Optionally, you can use buildResult to analyze the output
                     echo "Maven clean result: ${buildResult}" 
             // Save output to a file for record
-            writeFile file: 'build_output.txt', text: buildResult
-            
+            writeFile file: 'build_output.txt', text: buildResult            
             // Scan for error lines (case-insensitive)
             def errorLines = buildResult.readLines().findAll { it.toLowerCase().contains('error') }
             
