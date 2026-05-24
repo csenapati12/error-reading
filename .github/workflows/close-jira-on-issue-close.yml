@@ -13,8 +13,7 @@ jobs:
         id: extract
         run: |
           ISSUE_BODY="${{ github.event.issue.body }}"
-          JIRA_TICKET=$(echo "$ISSUE_BODY" | \
-            grep -oE '[A-Z]+-[0-9]+' | head -1)
+          JIRA_TICKET=$(echo "$ISSUE_BODY" | grep -oE '[A-Z]+-[0-9]+' | head -1)
           echo "ticket=$JIRA_TICKET" >> $GITHUB_OUTPUT
           echo "Found Jira ticket: $JIRA_TICKET"
 
@@ -22,38 +21,16 @@ jobs:
         if: steps.extract.outputs.ticket != ''
         run: |
           curl --request POST \
-            --url "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue\
-            /${{ steps.extract.outputs.ticket }}/transitions" \
-            --user "${{ secrets.JIRA_USER_EMAIL }}:\
-            ${{ secrets.JIRA_API_TOKEN }}" \
+            --url "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ steps.extract.outputs.ticket }}/transitions" \
+            --user "${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
             --header "Content-Type: application/json" \
-            --data '{
-              "transition": {
-                "id": "51"
-              }
-            }'
+            --data '{"transition": {"id": "51"}}'
 
       - name: Add comment to Jira ticket
         if: steps.extract.outputs.ticket != ''
         run: |
-          ISSUE_URL="${{ github.event.issue.html_url }}"
-          ISSUE_TITLE="${{ github.event.issue.title }}"
           curl --request POST \
-            --url "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue\
-            /${{ steps.extract.outputs.ticket }}/comment" \
-            --user "${{ secrets.JIRA_USER_EMAIL }}:\
-            ${{ secrets.JIRA_API_TOKEN }}" \
+            --url "${{ secrets.JIRA_BASE_URL }}/rest/api/3/issue/${{ steps.extract.outputs.ticket }}/comment" \
+            --user "${{ secrets.JIRA_USER_EMAIL }}:${{ secrets.JIRA_API_TOKEN }}" \
             --header "Content-Type: application/json" \
-            --data "{
-              \"body\": {
-                \"type\": \"doc\",
-                \"version\": 1,
-                \"content\": [{
-                  \"type\": \"paragraph\",
-                  \"content\": [{
-                    \"type\": \"text\",
-                    \"text\": \"✅ Automatically closed via GitHub Issue: $ISSUE_TITLE - $ISSUE_URL\"
-                  }]
-                }]
-              }
-            }"
+            --data "{\"body\": {\"type\": \"doc\", \"version\": 1, \"content\": [{\"type\": \"paragraph\", \"content\": [{\"type\": \"text\", \"text\": \"✅ Automatically closed via GitHub Issue: ${{ github.event.issue.title }} - ${{ github.event.issue.html_url }}\"}]}]}}"
