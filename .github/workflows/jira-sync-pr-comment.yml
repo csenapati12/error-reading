@@ -30,6 +30,7 @@ jobs:
           PR_NUMBER_INPUT: ${{ github.event.inputs.pr_number }}
           JIRA_KEY_INPUT: ${{ github.event.inputs.jira_key }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           # If a pr_number input was provided for workflow_dispatch, fetch PR via GitHub API
