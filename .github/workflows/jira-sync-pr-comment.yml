@@ -1,5 +1,4 @@
 name: JIRA PR comment sync
-
 on:
   pull_request:
     types: [opened, reopened, edited, synchronize, closed]
