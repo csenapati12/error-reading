@@ -1,0 +1,81 @@
+name: JIRA PR comment sync
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize, closed]
+
+permissions:
+  contents: read
+
+jobs:
+  update-jira-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Get PR metadata
+        id: pr
+        run: |
+          echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+          echo "pr_title=${{ github.event.pull_request.title }}" >> $GITHUB_OUTPUT
+          echo "pr_url=${{ github.event.pull_request.html_url }}" >> $GITHUB_OUTPUT
+          echo "pr_action=${{ github.event.action }}" >> $GITHUB_OUTPUT
+          echo "pr_merged=${{ github.event.pull_request.merged }}" >> $GITHUB_OUTPUT
+          echo "pr_author=${{ github.event.pull_request.user.login }}" >> $GITHUB_OUTPUT
+          echo "pr_branch=${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
+
+      - name: Update or create JIRA comment
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}    # e.g. https://your-org.atlassian.net
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          PR_TITLE: ${{ steps.pr.outputs.pr_title }}
+          PR_URL: ${{ steps.pr.outputs.pr_url }}
+          PR_ACTION: ${{ steps.pr.outputs.pr_action }}
+          PR_MERGED: ${{ steps.pr.outputs.pr_merged }}
+          PR_AUTHOR: ${{ steps.pr.outputs.pr_author }}
+          PR_BRANCH: ${{ steps.pr.outputs.pr_branch }}
+        run: |
+          set -euo pipefail
+          # Find a JIRA issue key in PR title or branch name (e.g. PROJ-123)
+          JIRA_KEY=$(printf "%s\n%s" "$PR_TITLE" "$PR_BRANCH" | grep -oE '([A-Z][A-Z0-9]+-[0-9]+)' | head -n1 || true)
+          if [ -z "$JIRA_KEY" ]; then
+            echo "No JIRA issue key found in PR title or branch ($PR_TITLE / $PR_BRANCH). Skipping."
+            exit 0
+          fi
+
+          # Build an idempotent marker so we can update the same comment later
+          MARKER="<!-- jira-pr-comment:${PR_NUMBER} -->"
+
+          # Build comment content
+          if [ "$PR_MERGED" = "true" ]; then
+            STATUS="merged"
+          elif [ "$PR_ACTION" = "closed" ]; then
+            STATUS="closed"
+          else
+            STATUS="$PR_ACTION"
+          fi
+
+          COMMENT_BODY="Pull request #${PR_NUMBER} (${PR_URL}) by ${PR_AUTHOR} — status: ${STATUS}\n${MARKER}"
+
+          echo "Will post/update comment on JIRA issue: $JIRA_KEY"
+
+          # Fetch existing comments
+          COMMENTS_JSON=$(curl -sS -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" -H "Accept: application/json" "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/comment")
+
+          # Search for our marker in existing comments
+          EXISTING_ID=$(echo "$COMMENTS_JSON" | jq -r --arg marker "$MARKER" '.comments[] | "\(.id)\t\(.body | tostring)"' | grep -F "$MARKER" | cut -f1 || true)
+
+          if [ -n "$EXISTING_ID" ]; then
+            echo "Updating existing comment id=$EXISTING_ID"
+            jq -n --arg body "$COMMENT_BODY" '{body: $body}' | curl -sS -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" -X PUT -H "Content-Type: application/json" -d @- "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/comment/$EXISTING_ID" > /dev/null
+            echo "Updated comment $EXISTING_ID on $JIRA_KEY"
+          else
+            echo "Creating new comment on $JIRA_KEY"
+            jq -n --arg body "$COMMENT_BODY" '{body: $body}' | curl -sS -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" -X POST -H "Content-Type: application/json" -d @- "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/comment" > /dev/null
+            echo "Created comment on $JIRA_KEY"
+          fi
+
+          echo "Done."
