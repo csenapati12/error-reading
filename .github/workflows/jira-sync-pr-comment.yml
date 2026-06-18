@@ -3,6 +3,16 @@ name: JIRA PR comment sync
 on:
   pull_request:
     types: [opened, reopened, edited, synchronize, closed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Pull request number to act on (optional). If omitted, runs against triggering PR (pull_request event).'
+        required: false
+        type: string
+      jira_key:
+        description: 'JIRA issue key to post comment to (optional). If omitted, inferred from PR title or branch.'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -16,18 +26,49 @@ jobs:
 
       - name: Get PR metadata
         id: pr
+        env:
+          PR_NUMBER_INPUT: ${{ github.event.inputs.pr_number }}
+          JIRA_KEY_INPUT: ${{ github.event.inputs.jira_key }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: |
-          echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
-          echo "pr_title=${{ github.event.pull_request.title }}" >> $GITHUB_OUTPUT
-          echo "pr_url=${{ github.event.pull_request.html_url }}" >> $GITHUB_OUTPUT
-          echo "pr_action=${{ github.event.action }}" >> $GITHUB_OUTPUT
-          echo "pr_merged=${{ github.event.pull_request.merged }}" >> $GITHUB_OUTPUT
-          echo "pr_author=${{ github.event.pull_request.user.login }}" >> $GITHUB_OUTPUT
-          echo "pr_branch=${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          # If a pr_number input was provided for workflow_dispatch, fetch PR via GitHub API
+          if [ -n "$PR_NUMBER_INPUT" ]; then
+            PR_NUMBER="$PR_NUMBER_INPUT"
+            echo "Fetching PR #$PR_NUMBER from GitHub API"
+            PR_JSON=$(curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")
+            echo "pr_number=$(echo "$PR_JSON" | jq -r '.number')" >> $GITHUB_OUTPUT
+            echo "pr_title=$(echo "$PR_JSON" | jq -r '.title')" >> $GITHUB_OUTPUT
+            echo "pr_url=$(echo "$PR_JSON" | jq -r '.html_url')" >> $GITHUB_OUTPUT
+            echo "pr_action=workflow_dispatch" >> $GITHUB_OUTPUT
+            echo "pr_merged=$(echo "$PR_JSON" | jq -r '.merged')" >> $GITHUB_OUTPUT
+            echo "pr_author=$(echo "$PR_JSON" | jq -r '.user.login')" >> $GITHUB_OUTPUT
+            echo "pr_branch=$(echo "$PR_JSON" | jq -r '.head.ref')" >> $GITHUB_OUTPUT
+          elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "Extracting PR info from pull_request event"
+            echo "pr_number=$(jq -r .pull_request.number $GITHUB_EVENT_PATH)" >> $GITHUB_OUTPUT
+            echo "pr_title=$(jq -r .pull_request.title $GITHUB_EVENT_PATH)" >> $GITHUB_OUTPUT
+            echo "pr_url=$(jq -r .pull_request.html_url $GITHUB_EVENT_PATH)" >> $GITHUB_OUTPUT
+            echo "pr_action=$(jq -r .action $GITHUB_EVENT_PATH)" >> $GITHUB_OUTPUT
+            echo "pr_merged=$(jq -r .pull_request.merged $GITHUB_EVENT_PATH)" >> $GITHUB_OUTPUT
+            echo "pr_author=$(jq -r .pull_request.user.login $GITHUB_EVENT_PATH)" >> $GITHUB_OUTPUT
+            echo "pr_branch=$(jq -r .pull_request.head.ref $GITHUB_EVENT_PATH)" >> $GITHUB_OUTPUT
+          else
+            # No PR context; allow running with only jira_key input
+            echo "No PR context detected. workflow_dispatch inputs: pr_number='$PR_NUMBER_INPUT' jira_key='$JIRA_KEY_INPUT'"
+            echo "pr_number=" >> $GITHUB_OUTPUT
+            echo "pr_title=" >> $GITHUB_OUTPUT
+            echo "pr_url=" >> $GITHUB_OUTPUT
+            echo "pr_action=workflow_dispatch" >> $GITHUB_OUTPUT
+            echo "pr_merged=false" >> $GITHUB_OUTPUT
+            echo "pr_author=" >> $GITHUB_OUTPUT
+            echo "pr_branch=" >> $GITHUB_OUTPUT
+            echo "jira_key_input=$JIRA_KEY_INPUT" >> $GITHUB_OUTPUT
+          fi
 
       - name: Update or create JIRA comment
         env:
-          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}    # e.g. https://your-org.atlassian.net
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
           JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
@@ -37,19 +78,23 @@ jobs:
           PR_MERGED: ${{ steps.pr.outputs.pr_merged }}
           PR_AUTHOR: ${{ steps.pr.outputs.pr_author }}
           PR_BRANCH: ${{ steps.pr.outputs.pr_branch }}
+          JIRA_KEY_INPUT: ${{ steps.pr.outputs.jira_key_input }}
         run: |
           set -euo pipefail
-          # Find a JIRA issue key in PR title or branch name (e.g. PROJ-123)
-          JIRA_KEY=$(printf "%s\n%s" "$PR_TITLE" "$PR_BRANCH" | grep -oE '([A-Z][A-Z0-9]+-[0-9]+)' | head -n1 || true)
+          # Determine JIRA key: input -> title/branch
+          if [ -n "$JIRA_KEY_INPUT" ] && [ "$JIRA_KEY_INPUT" != "null" ]; then
+            JIRA_KEY="$JIRA_KEY_INPUT"
+          else
+            JIRA_KEY=$(printf "%s\n%s" "$PR_TITLE" "$PR_BRANCH" | grep -oE '([A-Z][A-Z0-9]+-[0-9]+)' | head -n1 || true)
+          fi
+
           if [ -z "$JIRA_KEY" ]; then
-            echo "No JIRA issue key found in PR title or branch ($PR_TITLE / $PR_BRANCH). Skipping."
+            echo "No JIRA issue key found (inputs/title/branch). Skipping."
             exit 0
           fi
 
-          # Build an idempotent marker so we can update the same comment later
-          MARKER="<!-- jira-pr-comment:${PR_NUMBER} -->"
+          MARKER="<!-- jira-pr-comment:${PR_NUMBER:-manual} -->"
 
-          # Build comment content
           if [ "$PR_MERGED" = "true" ]; then
             STATUS="merged"
           elif [ "$PR_ACTION" = "closed" ]; then
@@ -58,23 +103,21 @@ jobs:
             STATUS="$PR_ACTION"
           fi
 
-          COMMENT_BODY="Pull request #${PR_NUMBER} (${PR_URL}) by ${PR_AUTHOR} — status: ${STATUS}\n${MARKER}"
+          COMMENT_BODY="Pull request ${PR_NUMBER:+#${PR_NUMBER} }${PR_URL:+(${PR_URL}) }by ${PR_AUTHOR:-unknown} — status: ${STATUS}\n${MARKER}"
 
           echo "Will post/update comment on JIRA issue: $JIRA_KEY"
 
-          # Fetch existing comments
           COMMENTS_JSON=$(curl -sS -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" -H "Accept: application/json" "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/comment")
 
-          # Search for our marker in existing comments
           EXISTING_ID=$(echo "$COMMENTS_JSON" | jq -r --arg marker "$MARKER" '.comments[] | "\(.id)\t\(.body | tostring)"' | grep -F "$MARKER" | cut -f1 || true)
 
           if [ -n "$EXISTING_ID" ]; then
             echo "Updating existing comment id=$EXISTING_ID"
-            jq -n --arg body "$COMMENT_BODY" '{body: $body}' | curl -sS -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" -X PUT -H "Content-Type: application/json" -d @- "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/comment/$EXISTING_ID" > /dev/null
+            jq -n --arg body "$COMMENT_BODY" '{body: $body}' | curl -sS -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" -X PUT -H "Content-Type: application/json" -d @- "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/comment/$EXISTING_ID"
             echo "Updated comment $EXISTING_ID on $JIRA_KEY"
           else
             echo "Creating new comment on $JIRA_KEY"
-            jq -n --arg body "$COMMENT_BODY" '{body: $body}' | curl -sS -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" -X POST -H "Content-Type: application/json" -d @- "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/comment" > /dev/null
+            jq -n --arg body "$COMMENT_BODY" '{body: $body}' | curl -sS -u "$JIRA_USER_EMAIL:$JIRA_API_TOKEN" -X POST -H "Content-Type: application/json" -d @- "$JIRA_BASE_URL/rest/api/3/issue/$JIRA_KEY/comment"
             echo "Created comment on $JIRA_KEY"
           fi
 
