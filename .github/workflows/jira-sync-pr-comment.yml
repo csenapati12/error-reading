@@ -37,6 +37,8 @@ jobs:
           if [ -n "$PR_NUMBER_INPUT" ]; then
             PR_NUMBER="$PR_NUMBER_INPUT"
             echo "Fetching PR #$PR_NUMBER from GitHub API"
+            JIRA_ISSUE="$JIRA_KEY_INPUT"
+            echo "Fetching JIra issue #$JIRA_ISSUE from GitHub API"
             PR_JSON=$(curl -sS -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")
             echo "pr_number=$(echo "$PR_JSON" | jq -r '.number')" >> $GITHUB_OUTPUT
             echo "pr_title=$(echo "$PR_JSON" | jq -r '.title')" >> $GITHUB_OUTPUT
